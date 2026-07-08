@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.8.1-cudnn-runtime-ubuntu24.04
+FROM python:3.12-slim-bookworm
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
@@ -27,15 +27,11 @@ RUN apt-get update && \
         curl \
         ffmpeg \
         git \
-        libsndfile1 \
-        python-is-python3 \
-        python3 \
-        python3-pip \
-        python3-venv && \
+        libsndfile1 && \
     rm -rf /var/lib/apt/lists/*
 
-RUN python -m pip install --break-system-packages --upgrade pip && \
-    pip install --break-system-packages --no-cache-dir runpod requests soundfile && \
+RUN python -m pip install --upgrade pip && \
+    pip install --no-cache-dir runpod requests soundfile && \
     curl -LsSf https://astral.sh/uv/install.sh | sh
 
 RUN git clone --depth 1 https://github.com/ACE-Step/ACE-Step-1.5.git ${ACESTEP_HOME}
