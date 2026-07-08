@@ -19,6 +19,7 @@ ACESTEP_API_PORT = int(os.environ.get("ACESTEP_API_PORT", "8001"))
 ACESTEP_API_URL = f"http://{ACESTEP_API_HOST}:{ACESTEP_API_PORT}"
 ACESTEP_API_KEY = os.environ.get("ACESTEP_API_KEY", "").strip()
 ACESTEP_PROCESS = None
+ACESTEP_LOG_PATH = Path(os.environ.get("ACESTEP_LOG_PATH", "/tmp/ace-step-api.log"))
 
 BUNNY_STORAGE_HOST = os.environ.get("BUNNY_STORAGE_HOST", "https://storage.bunnycdn.com").rstrip("/")
 if BUNNY_STORAGE_HOST and "://" not in BUNNY_STORAGE_HOST:
@@ -118,6 +119,16 @@ def _ace_command():
     return command
 
 
+def _tail_ace_log(max_chars=4000):
+    try:
+        if not ACESTEP_LOG_PATH.exists():
+            return ""
+        data = ACESTEP_LOG_PATH.read_text(errors="replace")
+        return data[-max_chars:]
+    except Exception as exc:
+        return f"Could not read ACE-Step log: {exc}"
+
+
 def _start_api_if_needed():
     global ACESTEP_PROCESS
     try:
@@ -131,10 +142,13 @@ def _start_api_if_needed():
         return
 
     print("ace-step-worker - starting ACE-Step API server...")
+    print("ace-step-worker - command:", " ".join(_ace_command()))
+    ACESTEP_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    log_handle = ACESTEP_LOG_PATH.open("ab")
     ACESTEP_PROCESS = subprocess.Popen(
         _ace_command(),
         cwd=str(ACESTEP_HOME),
-        stdout=subprocess.DEVNULL,
+        stdout=log_handle,
         stderr=subprocess.STDOUT,
         env=os.environ.copy(),
     )
@@ -146,7 +160,7 @@ def _wait_for_api(timeout_seconds=1800):
     last_error = ""
     while time.time() < deadline:
         if ACESTEP_PROCESS and ACESTEP_PROCESS.poll() is not None:
-            raise RuntimeError(f"ACE-Step API exited with code {ACESTEP_PROCESS.returncode}")
+            raise RuntimeError(f"ACE-Step API exited with code {ACESTEP_PROCESS.returncode}. Log tail: {_tail_ace_log()}")
         try:
             response = requests.get(f"{ACESTEP_API_URL}/health", timeout=10)
             if response.status_code < 500:
@@ -156,7 +170,7 @@ def _wait_for_api(timeout_seconds=1800):
         except Exception as exc:
             last_error = str(exc)
         time.sleep(5)
-    raise TimeoutError(f"ACE-Step API did not become ready: {last_error}")
+    raise TimeoutError(f"ACE-Step API did not become ready: {last_error}. Log tail: {_tail_ace_log()}")
 
 
 def _unwrap_response(response, label):
