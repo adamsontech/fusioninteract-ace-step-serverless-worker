@@ -20,6 +20,7 @@ ACESTEP_API_URL = f"http://{ACESTEP_API_HOST}:{ACESTEP_API_PORT}"
 ACESTEP_API_KEY = os.environ.get("ACESTEP_API_KEY", "").strip()
 ACESTEP_PROCESS = None
 ACESTEP_LOG_PATH = Path(os.environ.get("ACESTEP_LOG_PATH", "/tmp/ace-step-api.log"))
+WORKER_VERSION = "20260708-casing-storage-v2"
 
 BUNNY_STORAGE_HOST = os.environ.get("BUNNY_STORAGE_HOST", "https://storage.bunnycdn.com").rstrip("/")
 if BUNNY_STORAGE_HOST and "://" not in BUNNY_STORAGE_HOST:
@@ -235,16 +236,17 @@ def _download_outputs(outputs, work_dir):
 
 
 def _stage_optional_audio(job_input, work_dir, key_prefix):
-    url = (job_input.get(f"{key_prefix}_audio_url") or "").strip()
-    encoded = (job_input.get(f"{key_prefix}_audio_base64") or "").strip()
+    url = (_get_ci(job_input, f"{key_prefix}_audio_url") or "").strip()
+    encoded = (_get_ci(job_input, f"{key_prefix}_audio_base64") or "").strip()
     if not url and not encoded:
         return ""
-    extension = _safe_name(job_input.get(f"{key_prefix}_audio_extension") or "wav", "wav")
+    extension = _safe_name(_get_ci(job_input, f"{key_prefix}_audio_extension") or "wav", "wav")
     target = work_dir / f"{key_prefix}-audio.{extension}"
     if encoded:
         _write_base64_audio(encoded, target)
     else:
-        _download(url, target, headers=job_input.get("download_headers") if isinstance(job_input.get("download_headers"), dict) else {})
+        download_headers = _get_ci(job_input, "download_headers")
+        _download(url, target, headers=download_headers if isinstance(download_headers, dict) else {})
     return str(target)
 
 
@@ -352,6 +354,7 @@ def handler(job):
 
         return {
             "ok": True,
+            "worker_version": WORKER_VERSION,
             "provider": "ace_step",
             "task_id": task_id,
             "model": payload.get("model"),
@@ -360,6 +363,13 @@ def handler(job):
             "audio_format": audio_format,
             "duration_seconds": duration_seconds,
             "batch_size": batch_size,
+            "metadata": {
+                "prompt": payload.get("prompt"),
+                "lyrics_provided": bool(payload.get("lyrics")),
+                "inference_steps": payload.get("inference_steps"),
+                "guidance_scale": payload.get("guidance_scale"),
+                "worker_version": WORKER_VERSION,
+            },
             "output_count": len(outputs),
             "outputs": outputs,
             "timing": {
