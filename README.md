@@ -90,7 +90,7 @@ uv sync
 uv run acestep-api
 ```
 
-This worker wraps that API for RunPod Serverless. The Dockerfile clones ACE-Step into `/opt/ACE-Step-1.5`, runs `uv sync`, then starts `handler.py`.
+This worker wraps that API for RunPod Serverless. The Dockerfile uses the official ACE-Step image, installs the RunPod worker dependency, then starts `handler.py`.
 
 Build on a machine with Docker:
 

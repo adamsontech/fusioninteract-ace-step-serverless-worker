@@ -1,10 +1,9 @@
-FROM python:3.12-slim-bookworm
+FROM ghcr.io/ace-step/ace-step-1.5:0.1.8
 
-ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
 ENV PIP_PREFER_BINARY=1
 ENV UV_LINK_MODE=copy
-ENV ACESTEP_HOME=/opt/ACE-Step-1.5
+ENV ACESTEP_HOME=/app
 ENV ACESTEP_API_HOST=127.0.0.1
 ENV ACESTEP_API_PORT=8001
 ENV ACESTEP_CONFIG_PATH=acestep-v15-xl-sft
@@ -20,24 +19,7 @@ ENV ACESTEP_DEFAULT_GUIDANCE_SCALE=7.0
 ENV ACESTEP_DEFAULT_BATCH_SIZE=1
 ENV ACESTEP_DEFAULT_THINKING=true
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        build-essential \
-        ca-certificates \
-        curl \
-        ffmpeg \
-        git \
-        libsndfile1 && \
-    rm -rf /var/lib/apt/lists/*
-
-RUN python -m pip install --upgrade pip && \
-    pip install --no-cache-dir runpod requests soundfile && \
-    curl -LsSf https://astral.sh/uv/install.sh | sh
-
-RUN git clone --depth 1 https://github.com/ACE-Step/ACE-Step-1.5.git ${ACESTEP_HOME}
-
-WORKDIR ${ACESTEP_HOME}
-RUN /root/.local/bin/uv sync
+RUN python -m pip install --no-cache-dir runpod requests soundfile
 
 WORKDIR /worker
 COPY handler.py /worker/handler.py

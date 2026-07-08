@@ -111,8 +111,9 @@ def _upload_to_bunny(local_path, remote_path):
 
 
 def _ace_command():
+    uv_bin = os.environ.get("ACESTEP_UV_BIN", "").strip() or shutil.which("uv") or "/root/.local/bin/uv"
     command = [
-        "/root/.local/bin/uv",
+        uv_bin,
         "run",
         "acestep-api",
         "--host",
