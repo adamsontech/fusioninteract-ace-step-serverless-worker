@@ -4,6 +4,7 @@ ENV PYTHONUNBUFFERED=1
 ENV PIP_PREFER_BINARY=1
 ENV UV_LINK_MODE=copy
 ENV ACESTEP_HOME=/app
+ENV ACESTEP_PROJECT_ROOT=/app
 ENV ACESTEP_API_HOST=127.0.0.1
 ENV ACESTEP_API_PORT=8001
 ENV ACESTEP_CONFIG_PATH=acestep-v15-xl-sft
@@ -19,11 +20,12 @@ ENV ACESTEP_DEFAULT_GUIDANCE_SCALE=7.0
 ENV ACESTEP_DEFAULT_BATCH_SIZE=1
 ENV ACESTEP_DEFAULT_THINKING=true
 
-RUN python -m pip install --no-cache-dir runpod requests soundfile
+RUN uv pip install --python /app/.venv/bin/python runpod requests soundfile
 
 WORKDIR /worker
 COPY handler.py /worker/handler.py
 COPY scripts/start-ace-step-worker.sh /usr/local/bin/start-ace-step-worker.sh
 RUN chmod +x /usr/local/bin/start-ace-step-worker.sh
 
+ENTRYPOINT []
 CMD ["/usr/local/bin/start-ace-step-worker.sh"]
