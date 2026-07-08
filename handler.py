@@ -97,21 +97,16 @@ def _ace_command():
         "/root/.local/bin/uv",
         "run",
         "acestep-api",
-        "--server-name",
+        "--host",
         ACESTEP_API_HOST,
         "--port",
         str(ACESTEP_API_PORT),
-        "--init_service",
-        "true",
     ]
-    config_path = os.environ.get("ACESTEP_CONFIG_PATH", "").strip()
     lm_model_path = os.environ.get("ACESTEP_LM_MODEL_PATH", "").strip()
     download_source = os.environ.get("ACESTEP_DOWNLOAD_SOURCE", "").strip()
     api_key = os.environ.get("ACESTEP_API_KEY", "").strip()
-    if config_path:
-        command.extend(["--config_path", config_path])
     if lm_model_path:
-        command.extend(["--lm_model_path", lm_model_path])
+        command.extend(["--init-llm", "--lm-model-path", lm_model_path])
     if download_source:
         command.extend(["--download-source", download_source])
     if api_key:
