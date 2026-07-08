@@ -79,6 +79,52 @@ Attach a RunPod network volume so `/runpod-volume/ace-step-models` survives cold
 
 Do not commit API keys, Bunny keys, or endpoint secrets.
 
+## Install / Build
+
+ACE-Step's official install flow is:
+
+```bash
+git clone https://github.com/ace-step/ACE-Step-1.5.git
+cd ACE-Step-1.5
+uv sync
+uv run acestep-api
+```
+
+This worker wraps that API for RunPod Serverless. The Dockerfile clones ACE-Step into `/opt/ACE-Step-1.5`, runs `uv sync`, then starts `handler.py`.
+
+Build on a machine with Docker:
+
+```powershell
+.\scripts\build-image.ps1 -Image your-registry/fusioninteract-ace-step:latest -Push
+```
+
+Linux/macOS:
+
+```bash
+IMAGE=your-registry/fusioninteract-ace-step:latest PUSH=true ./scripts/build-image.sh
+```
+
+Run a local syntax smoke test:
+
+```powershell
+.\scripts\smoke-test.ps1 -Python "C:\path\to\python.exe"
+```
+
+This desktop does not need to contain the generated models. Attach a RunPod network volume and set `ACESTEP_CHECKPOINTS_DIR=/runpod-volume/ace-step-models` so model downloads survive cold starts.
+
+For a local Windows ACE-Step API install, use:
+
+```powershell
+.\scripts\install-local-windows.ps1 -InstallDir C:\ace-step\ACE-Step-1.5
+```
+
+Then launch:
+
+```powershell
+cd C:\ace-step\ACE-Step-1.5
+uv run acestep-api --host 127.0.0.1 --port 8001
+```
+
 ## Output
 
 ```json
