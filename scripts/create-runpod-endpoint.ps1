@@ -8,8 +8,7 @@ param(
   [string]$NetworkVolumeId = "wsta77wxv4",
   [string]$GpuType = "NVIDIA RTX PRO 6000 Blackwell Server Edition",
   [int]$WorkersMax = 1,
-  [int]$WorkersMin = 0,
-  [int]$WorkersStandby = 0
+  [int]$WorkersMin = 0
 )
 
 $ErrorActionPreference = "Stop"
@@ -53,7 +52,11 @@ $templateBody = @{
   volumeMountPath = "/runpod-volume"
 }
 
-$template = Invoke-RestMethod -Method Post -Uri "$baseUrl/templates" -Headers $headers -Body ($templateBody | ConvertTo-Json -Depth 8)
+$templates = Invoke-RestMethod -Method Get -Uri "$baseUrl/templates" -Headers $headers
+$template = $templates | Where-Object { $_.name -eq $TemplateName } | Select-Object -First 1
+if (-not $template) {
+  $template = Invoke-RestMethod -Method Post -Uri "$baseUrl/templates" -Headers $headers -Body ($templateBody | ConvertTo-Json -Depth 8)
+}
 
 $endpointBody = @{
   allowedCudaVersions = @("12.8", "12.9", "13.0")
@@ -65,16 +68,18 @@ $endpointBody = @{
   idleTimeout = 30
   name = $EndpointName
   networkVolumeId = $NetworkVolumeId
-  networkVolumeIds = @($NetworkVolumeId)
   scalerType = "QUEUE_DELAY"
   scalerValue = 4
   templateId = $template.id
   workersMax = $WorkersMax
   workersMin = $WorkersMin
-  workersStandby = $WorkersStandby
 }
 
-$endpoint = Invoke-RestMethod -Method Post -Uri "$baseUrl/endpoints" -Headers $headers -Body ($endpointBody | ConvertTo-Json -Depth 8)
+$endpoints = Invoke-RestMethod -Method Get -Uri "$baseUrl/endpoints" -Headers $headers
+$endpoint = $endpoints | Where-Object { $_.name -eq $EndpointName } | Select-Object -First 1
+if (-not $endpoint) {
+  $endpoint = Invoke-RestMethod -Method Post -Uri "$baseUrl/endpoints" -Headers $headers -Body ($endpointBody | ConvertTo-Json -Depth 8)
+}
 
 [pscustomobject]@{
   TemplateId = $template.id
