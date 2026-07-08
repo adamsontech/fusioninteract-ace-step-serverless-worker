@@ -1,4 +1,4 @@
-FROM runpod/worker-comfyui:fix-dr-1170-ngc-base-blackwell-base-cuda12.8.1
+FROM nvidia/cuda:12.8.1-cudnn-runtime-ubuntu24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
@@ -21,7 +21,17 @@ ENV ACESTEP_DEFAULT_BATCH_SIZE=1
 ENV ACESTEP_DEFAULT_THINKING=true
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ffmpeg ca-certificates curl git && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        ca-certificates \
+        curl \
+        ffmpeg \
+        git \
+        libsndfile1 \
+        python-is-python3 \
+        python3 \
+        python3-pip \
+        python3-venv && \
     rm -rf /var/lib/apt/lists/*
 
 RUN python -m pip install --upgrade pip && \
