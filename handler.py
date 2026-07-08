@@ -21,6 +21,8 @@ ACESTEP_API_KEY = os.environ.get("ACESTEP_API_KEY", "").strip()
 ACESTEP_PROCESS = None
 
 BUNNY_STORAGE_HOST = os.environ.get("BUNNY_STORAGE_HOST", "https://storage.bunnycdn.com").rstrip("/")
+if BUNNY_STORAGE_HOST and "://" not in BUNNY_STORAGE_HOST:
+    BUNNY_STORAGE_HOST = f"https://{BUNNY_STORAGE_HOST}"
 BUNNY_STORAGE_ZONE = os.environ.get("BUNNY_STORAGE_ZONE", "").strip("/")
 BUNNY_STORAGE_ACCESS_KEY = os.environ.get("BUNNY_STORAGE_ACCESS_KEY", "")
 BUNNY_PUBLIC_BASE_URL = os.environ.get("BUNNY_PUBLIC_BASE_URL", "").rstrip("/")
