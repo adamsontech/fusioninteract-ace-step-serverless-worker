@@ -34,8 +34,8 @@ RUN apt-get update && \
         python3-venv && \
     rm -rf /var/lib/apt/lists/*
 
-RUN python -m pip install --upgrade pip && \
-    pip install --no-cache-dir runpod requests soundfile && \
+RUN python -m pip install --break-system-packages --upgrade pip && \
+    pip install --break-system-packages --no-cache-dir runpod requests soundfile && \
     curl -LsSf https://astral.sh/uv/install.sh | sh
 
 RUN git clone --depth 1 https://github.com/ACE-Step/ACE-Step-1.5.git ${ACESTEP_HOME}
