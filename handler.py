@@ -43,6 +43,21 @@ def _safe_name(value, default="ace-music"):
     return (value or default)[:90]
 
 
+def _get_ci(mapping, key, default=None):
+    if not isinstance(mapping, dict):
+        return default
+    if key in mapping:
+        return mapping[key]
+    upper_key = key.upper()
+    if upper_key in mapping:
+        return mapping[upper_key]
+    lower_key = key.lower()
+    for item_key, item_value in mapping.items():
+        if str(item_key).lower() == lower_key:
+            return item_value
+    return default
+
+
 def _headers():
     headers = {"Content-Type": "application/json"}
     if ACESTEP_API_KEY:
@@ -77,7 +92,7 @@ def _content_type(path):
 
 def _upload_to_bunny(local_path, remote_path):
     if not (BUNNY_STORAGE_ZONE and BUNNY_STORAGE_ACCESS_KEY):
-        return None
+        return {"public_url": None, "storage_url": None}
     remote_path = remote_path.strip("/")
     url = f"{BUNNY_STORAGE_HOST}/{BUNNY_STORAGE_ZONE}/{quote(remote_path, safe='/')}"
     headers = {
@@ -87,9 +102,11 @@ def _upload_to_bunny(local_path, remote_path):
     with local_path.open("rb") as handle:
         response = requests.put(url, headers=headers, data=handle, timeout=900)
     response.raise_for_status()
+    storage_url = f"bunny-storage://{remote_path}"
+    public_url = None
     if BUNNY_PUBLIC_BASE_URL:
-        return f"{BUNNY_PUBLIC_BASE_URL}/{quote(remote_path, safe='/')}"
-    return f"bunny-storage://{remote_path}"
+        public_url = f"{BUNNY_PUBLIC_BASE_URL}/{quote(remote_path, safe='/')}"
+    return {"public_url": public_url, "storage_url": storage_url}
 
 
 def _ace_command():
@@ -234,46 +251,48 @@ def _stage_optional_audio(job_input, work_dir, key_prefix):
 def handler(job):
     start_time = time.time()
     job_input = job.get("input") or {}
-    request_id = _safe_name(job_input.get("request_id") or job.get("id") or uuid.uuid4().hex, "ace-job")
-    title = _safe_name(job_input.get("title") or request_id, "ace-music")
+    request_id = _safe_name(_get_ci(job_input, "request_id") or job.get("id") or uuid.uuid4().hex, "ace-job")
+    title = _safe_name(_get_ci(job_input, "title") or request_id, "ace-music")
     work_dir = WORK_ROOT / request_id
     work_dir.mkdir(parents=True, exist_ok=True)
 
     try:
-        _wait_for_api(int(job_input.get("api_start_timeout_seconds") or os.environ.get("ACESTEP_API_START_TIMEOUT_SECONDS", "1800")))
+        _wait_for_api(int(_get_ci(job_input, "api_start_timeout_seconds") or os.environ.get("ACESTEP_API_START_TIMEOUT_SECONDS", "1800")))
 
-        audio_format = (job_input.get("audio_format") or os.environ.get("ACESTEP_OUTPUT_FORMAT", "wav")).lower()
+        audio_format = (_get_ci(job_input, "audio_format") or os.environ.get("ACESTEP_OUTPUT_FORMAT", "wav")).lower()
         if audio_format not in {"flac", "mp3", "opus", "aac", "wav", "wav32"}:
             return {"ok": False, "error": "audio_format must be flac, mp3, opus, aac, wav, or wav32", "audio_format": audio_format}
 
-        duration_seconds = float(job_input.get("duration_seconds") or job_input.get("audio_duration") or os.environ.get("ACESTEP_DEFAULT_DURATION_SECONDS", "60"))
+        duration_seconds = float(_get_ci(job_input, "duration_seconds") or _get_ci(job_input, "audio_duration") or os.environ.get("ACESTEP_DEFAULT_DURATION_SECONDS", "60"))
         duration_seconds = max(10.0, min(600.0, duration_seconds))
-        batch_size = int(job_input.get("batch_size") or os.environ.get("ACESTEP_DEFAULT_BATCH_SIZE", "1"))
+        batch_size = int(_get_ci(job_input, "batch_size") or os.environ.get("ACESTEP_DEFAULT_BATCH_SIZE", "1"))
         batch_size = max(1, min(8, batch_size))
 
         payload = {
-            "prompt": (job_input.get("prompt") or job_input.get("description") or "").strip(),
-            "lyrics": (job_input.get("lyrics") or "").strip(),
-            "sample_query": (job_input.get("sample_query") or "").strip(),
-            "sample_mode": _bool(job_input.get("sample_mode"), False),
-            "use_format": _bool(job_input.get("use_format"), True),
-            "thinking": _bool(job_input.get("thinking"), _bool(os.environ.get("ACESTEP_DEFAULT_THINKING"), True)),
-            "vocal_language": job_input.get("vocal_language") or "en",
+            "prompt": (_get_ci(job_input, "prompt") or _get_ci(job_input, "description") or "").strip(),
+            "lyrics": (_get_ci(job_input, "lyrics") or "").strip(),
+            "sample_query": (_get_ci(job_input, "sample_query") or "").strip(),
+            "sample_mode": _bool(_get_ci(job_input, "sample_mode"), False),
+            "use_format": _bool(_get_ci(job_input, "use_format"), True),
+            "thinking": _bool(_get_ci(job_input, "thinking"), _bool(os.environ.get("ACESTEP_DEFAULT_THINKING"), True)),
+            "vocal_language": _get_ci(job_input, "vocal_language") or "en",
             "audio_format": audio_format,
             "audio_duration": duration_seconds,
-            "model": job_input.get("model") or os.environ.get("ACESTEP_CONFIG_PATH", "acestep-v15-xl-sft"),
-            "lm_model_path": job_input.get("lm_model_path") or os.environ.get("ACESTEP_LM_MODEL_PATH", "acestep-5Hz-lm-4B"),
-            "lm_backend": job_input.get("lm_backend") or os.environ.get("ACESTEP_LM_BACKEND", "vllm"),
-            "inference_steps": int(job_input.get("inference_steps") or os.environ.get("ACESTEP_DEFAULT_INFERENCE_STEPS", "64")),
-            "guidance_scale": float(job_input.get("guidance_scale") or os.environ.get("ACESTEP_DEFAULT_GUIDANCE_SCALE", "7.0")),
+            "model": _get_ci(job_input, "model") or os.environ.get("ACESTEP_CONFIG_PATH", "acestep-v15-xl-sft"),
+            "lm_model_path": _get_ci(job_input, "lm_model_path") or os.environ.get("ACESTEP_LM_MODEL_PATH", "acestep-5Hz-lm-4B"),
+            "lm_backend": _get_ci(job_input, "lm_backend") or os.environ.get("ACESTEP_LM_BACKEND", "vllm"),
+            "inference_steps": int(_get_ci(job_input, "inference_steps") or os.environ.get("ACESTEP_DEFAULT_INFERENCE_STEPS", "64")),
+            "guidance_scale": float(_get_ci(job_input, "guidance_scale") or os.environ.get("ACESTEP_DEFAULT_GUIDANCE_SCALE", "7.0")),
             "batch_size": batch_size,
-            "metas": job_input.get("metas") if isinstance(job_input.get("metas"), dict) else {},
+            "metas": _get_ci(job_input, "metas") if isinstance(_get_ci(job_input, "metas"), dict) else {},
         }
         for optional_key in ("bpm", "key_scale", "time_signature", "infer_method", "shift", "timesteps", "use_adg", "cfg_interval_start", "cfg_interval_end"):
-            if optional_key in job_input and job_input[optional_key] not in (None, ""):
-                payload[optional_key] = job_input[optional_key]
-        if "seed" in job_input and str(job_input.get("seed")).strip() not in {"", "-1"}:
-            payload["seed"] = int(job_input.get("seed"))
+            optional_value = _get_ci(job_input, optional_key)
+            if optional_value not in (None, ""):
+                payload[optional_key] = optional_value
+        seed_value = _get_ci(job_input, "seed")
+        if seed_value is not None and str(seed_value).strip() not in {"", "-1"}:
+            payload["seed"] = int(seed_value)
             payload["use_random_seed"] = False
 
         reference_path = _stage_optional_audio(job_input, work_dir, "reference")
@@ -282,9 +301,9 @@ def handler(job):
             payload["reference_audio_path"] = reference_path
         if source_path:
             payload["src_audio_path"] = source_path
-            payload["task_type"] = job_input.get("task_type") or "repaint"
-        elif job_input.get("task_type"):
-            payload["task_type"] = job_input.get("task_type")
+            payload["task_type"] = _get_ci(job_input, "task_type") or "repaint"
+        elif _get_ci(job_input, "task_type"):
+            payload["task_type"] = _get_ci(job_input, "task_type")
 
         submit_started = time.time()
         response = requests.post(f"{ACESTEP_API_URL}/release_task", headers=_headers(), json=payload, timeout=180)
@@ -293,8 +312,8 @@ def handler(job):
         if not task_id:
             raise RuntimeError(f"ACE-Step did not return a task_id: {submit_data}")
 
-        poll_attempts = int(job_input.get("poll_attempts") or os.environ.get("ACESTEP_POLL_ATTEMPTS", "720"))
-        poll_sleep_seconds = float(job_input.get("poll_sleep_seconds") or os.environ.get("ACESTEP_POLL_SLEEP_SECONDS", "5"))
+        poll_attempts = int(_get_ci(job_input, "poll_attempts") or os.environ.get("ACESTEP_POLL_ATTEMPTS", "720"))
+        poll_sleep_seconds = float(_get_ci(job_input, "poll_sleep_seconds") or os.environ.get("ACESTEP_POLL_SLEEP_SECONDS", "5"))
         last_status = {}
         for _ in range(max(1, poll_attempts)):
             time.sleep(max(1.0, poll_sleep_seconds))
@@ -309,20 +328,24 @@ def handler(job):
 
         result_items = _parse_result(last_status.get("result"))
         downloaded = _download_outputs(result_items, work_dir)
-        upload_prefix = (job_input.get("upload_prefix") or f"media/fusioninteract/ace-step/{request_id}").strip("/")
+        upload_prefix = (_get_ci(job_input, "upload_prefix") or f"media/fusioninteract/ace-step/{request_id}").strip("/")
         outputs = []
         for index, item in enumerate(downloaded, start=1):
             local_path = item["path"]
             remote_path = f"{upload_prefix}/{title}-{index}{local_path.suffix.lower()}"
-            public_url = _upload_to_bunny(local_path, remote_path)
+            upload_result = _upload_to_bunny(local_path, remote_path)
+            public_url = upload_result.get("public_url")
+            storage_url = upload_result.get("storage_url")
             audio_base64 = ""
-            if not public_url or _bool(job_input.get("return_base64"), False):
+            if not (public_url or storage_url) or _bool(_get_ci(job_input, "return_base64"), False):
                 audio_base64 = base64.b64encode(local_path.read_bytes()).decode("utf-8")
             outputs.append({
                 "file_name": local_path.name,
                 "bytes": local_path.stat().st_size,
                 "content_type": _content_type(local_path),
-                "url": public_url,
+                "url": storage_url or public_url,
+                "public_url": public_url,
+                "storage_url": storage_url,
                 "base64": audio_base64,
                 "metadata": item["metadata"],
             })
@@ -352,7 +375,7 @@ def handler(job):
             "timing": {"total_seconds": round(time.time() - start_time, 3)},
         }
     finally:
-        if not _bool(job_input.get("keep_work_dir"), False):
+        if not _bool(_get_ci(job_input, "keep_work_dir"), False):
             shutil.rmtree(work_dir, ignore_errors=True)
 
 
