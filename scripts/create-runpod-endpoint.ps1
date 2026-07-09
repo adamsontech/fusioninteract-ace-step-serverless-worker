@@ -19,7 +19,7 @@ $headers = @{
 $baseUrl = "https://rest.runpod.io/v1"
 
 $envVars = @{
-  ACESTEP_CONFIG_PATH = "acestep-v15-xl-sft"
+  ACESTEP_CONFIG_PATH = "acestep-v15-xl-turbo"
   ACESTEP_LM_MODEL_PATH = "acestep-5Hz-lm-4B"
   ACESTEP_LM_BACKEND = "vllm"
   ACESTEP_INIT_LLM = "true"
@@ -27,7 +27,7 @@ $envVars = @{
   ACESTEP_CHECKPOINTS_DIR = "/runpod-volume/ace-step-models"
   ACESTEP_OUTPUT_FORMAT = "wav"
   ACESTEP_DEFAULT_DURATION_SECONDS = "60"
-  ACESTEP_DEFAULT_INFERENCE_STEPS = "64"
+  ACESTEP_DEFAULT_INFERENCE_STEPS = "8"
   ACESTEP_DEFAULT_GUIDANCE_SCALE = "7.0"
   ACESTEP_DEFAULT_BATCH_SIZE = "1"
   ACESTEP_DEFAULT_THINKING = "true"

@@ -4,14 +4,14 @@ RunPod Serverless worker for open-source text-to-music generation with ACE-Step 
 
 Default production quality target for the 96 GB Pro endpoint:
 
-- DiT model: `acestep-v15-xl-sft`
+- DiT model: `acestep-v15-xl-turbo`
 - LM model: `acestep-5Hz-lm-4B`
 - LM backend: `vllm`
 - `thinking=true`
 - `use_format=true`
 - output: `wav`
 - duration: 60 seconds
-- inference steps: 64
+- inference steps: 8
 - batch size: 1
 
 The worker starts the ACE-Step REST API locally, submits a task to `/release_task`, polls `/query_result`, downloads the generated audio from `/v1/audio`, and optionally uploads the audio to Bunny Storage.
@@ -29,9 +29,9 @@ The worker starts the ACE-Step REST API locally, submits a task to `/release_tas
     "audio_format": "wav",
     "thinking": true,
     "use_format": true,
-    "model": "acestep-v15-xl-sft",
+    "model": "acestep-v15-xl-turbo",
     "lm_model_path": "acestep-5Hz-lm-4B",
-    "inference_steps": 64,
+    "inference_steps": 8,
     "guidance_scale": 7.0,
     "batch_size": 1,
     "upload_prefix": "media/fusioninteract/generated/music/job-id"
@@ -58,7 +58,7 @@ Reference/repaint style tasks can stage audio into the worker before submitting 
 Set these in the RunPod endpoint:
 
 ```text
-ACESTEP_CONFIG_PATH=acestep-v15-xl-sft
+ACESTEP_CONFIG_PATH=acestep-v15-xl-turbo
 ACESTEP_LM_MODEL_PATH=acestep-5Hz-lm-4B
 ACESTEP_LM_BACKEND=vllm
 ACESTEP_INIT_LLM=true
@@ -66,7 +66,7 @@ ACESTEP_DOWNLOAD_SOURCE=huggingface
 ACESTEP_CHECKPOINTS_DIR=/runpod-volume/ace-step-models
 ACESTEP_OUTPUT_FORMAT=wav
 ACESTEP_DEFAULT_DURATION_SECONDS=60
-ACESTEP_DEFAULT_INFERENCE_STEPS=64
+ACESTEP_DEFAULT_INFERENCE_STEPS=8
 ACESTEP_DEFAULT_GUIDANCE_SCALE=7.0
 ACESTEP_DEFAULT_BATCH_SIZE=1
 ACESTEP_DEFAULT_THINKING=true
@@ -132,7 +132,7 @@ uv run acestep-api --host 127.0.0.1 --port 8001
   "ok": true,
   "provider": "ace_step",
   "task_id": "550e8400-e29b-41d4-a716-446655440000",
-  "model": "acestep-v15-xl-sft",
+  "model": "acestep-v15-xl-turbo",
   "lm_model_path": "acestep-5Hz-lm-4B",
   "thinking": true,
   "audio_format": "wav",

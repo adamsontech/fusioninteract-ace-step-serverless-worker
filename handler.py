@@ -21,7 +21,7 @@ ACESTEP_API_URL = f"http://{ACESTEP_API_HOST}:{ACESTEP_API_PORT}"
 ACESTEP_API_KEY = os.environ.get("ACESTEP_API_KEY", "").strip()
 ACESTEP_PROCESS = None
 ACESTEP_LOG_PATH = Path(os.environ.get("ACESTEP_LOG_PATH", "/tmp/ace-step-api.log"))
-WORKER_VERSION = "20260708-casing-storage-v2"
+WORKER_VERSION = "20260708-reference-normalize-v1"
 
 BUNNY_STORAGE_HOST = os.environ.get("BUNNY_STORAGE_HOST", "https://storage.bunnycdn.com").rstrip("/")
 if BUNNY_STORAGE_HOST and "://" not in BUNNY_STORAGE_HOST:
@@ -279,7 +279,38 @@ def _stage_optional_audio(job_input, work_dir, key_prefix):
     else:
         download_headers = _get_ci(job_input, "download_headers")
         _download(url, target, headers=download_headers if isinstance(download_headers, dict) else {})
-    return str(target)
+    normalized = _normalize_reference_audio(target, work_dir, key_prefix)
+    return str(normalized or target)
+
+
+def _normalize_reference_audio(source_path, work_dir, key_prefix):
+    max_seconds = float(os.environ.get("ACESTEP_REFERENCE_MAX_SECONDS", "30"))
+    target = work_dir / f"{key_prefix}-audio-normalized.wav"
+    command = [
+        "ffmpeg",
+        "-y",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-i",
+        str(source_path),
+        "-t",
+        str(max(5.0, min(120.0, max_seconds))),
+        "-ac",
+        "2",
+        "-ar",
+        "44100",
+        "-af",
+        "loudnorm=I=-18:TP=-2:LRA=11,alimiter=limit=0.85",
+        str(target),
+    ]
+    try:
+        subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=180)
+        if target.exists() and target.stat().st_size > 44:
+            return target
+    except Exception as exc:
+        print(f"ace-step-worker - reference normalize failed for {source_path}: {exc}")
+    return None
 
 
 def handler(job):
@@ -314,10 +345,10 @@ def handler(job):
             "vocal_language": _get_ci(job_input, "vocal_language") or "en",
             "audio_format": audio_format,
             "audio_duration": duration_seconds,
-            "model": _get_ci(job_input, "model") or os.environ.get("ACESTEP_CONFIG_PATH", "acestep-v15-xl-sft"),
+            "model": _get_ci(job_input, "model") or os.environ.get("ACESTEP_CONFIG_PATH", "acestep-v15-xl-turbo"),
             "lm_model_path": _get_ci(job_input, "lm_model_path") or os.environ.get("ACESTEP_LM_MODEL_PATH", "acestep-5Hz-lm-4B"),
             "lm_backend": _get_ci(job_input, "lm_backend") or os.environ.get("ACESTEP_LM_BACKEND", "vllm"),
-            "inference_steps": int(_get_ci(job_input, "inference_steps") or os.environ.get("ACESTEP_DEFAULT_INFERENCE_STEPS", "64")),
+            "inference_steps": int(_get_ci(job_input, "inference_steps") or os.environ.get("ACESTEP_DEFAULT_INFERENCE_STEPS", "8")),
             "guidance_scale": float(_get_ci(job_input, "guidance_scale") or os.environ.get("ACESTEP_DEFAULT_GUIDANCE_SCALE", "7.0")),
             "batch_size": batch_size,
             "metas": _get_ci(job_input, "metas") if isinstance(_get_ci(job_input, "metas"), dict) else {},
