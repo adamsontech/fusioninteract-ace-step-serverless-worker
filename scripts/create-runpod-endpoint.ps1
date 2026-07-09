@@ -35,7 +35,7 @@ $envVars = @{
   ACESTEP_POLL_ATTEMPTS = "720"
   ACESTEP_POLL_SLEEP_SECONDS = "5"
   BUNNY_STORAGE_HOST = "https://storage.bunnycdn.com"
-  BUNNY_STORAGE_ZONE = "fusion-interact"
+  BUNNY_STORAGE_ZONE = "fusion-apps"
   BUNNY_STORAGE_ACCESS_KEY = $env:BUNNY_STORAGE_ACCESS_KEY
   BUNNY_PUBLIC_BASE_URL = ""
 }

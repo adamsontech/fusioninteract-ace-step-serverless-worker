@@ -104,7 +104,7 @@ def _upload_to_bunny(local_path, remote_path):
     with local_path.open("rb") as handle:
         response = requests.put(url, headers=headers, data=handle, timeout=900)
     response.raise_for_status()
-    storage_url = f"bunny-storage://{remote_path}"
+    storage_url = f"bunny-storage://{BUNNY_STORAGE_ZONE}/{remote_path}"
     public_url = None
     if BUNNY_PUBLIC_BASE_URL:
         public_url = f"{BUNNY_PUBLIC_BASE_URL}/{quote(remote_path, safe='/')}"
