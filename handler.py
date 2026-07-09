@@ -1,6 +1,7 @@
 import base64
 import json
 import os
+from urllib.parse import parse_qs, urlparse
 import shutil
 import subprocess
 import time
@@ -220,13 +221,26 @@ def _parse_result(result_value):
     return []
 
 
+def _extension_from_audio_value(file_value, default=".wav"):
+    parsed = urlparse(file_value)
+    path_candidates = [parsed.path]
+    query_path = parse_qs(parsed.query).get("path", [""])[0]
+    if query_path:
+        path_candidates.insert(0, query_path)
+    for candidate in path_candidates:
+        extension = os.path.splitext(candidate)[1].lower()
+        if extension in {".flac", ".mp3", ".opus", ".aac", ".wav"}:
+            return extension
+    return default
+
+
 def _download_outputs(outputs, work_dir):
     downloaded = []
     for index, item in enumerate(outputs, start=1):
         file_value = (item.get("file") or item.get("url") or "").strip()
         if not file_value:
             continue
-        extension = os.path.splitext(file_value.split("?", 1)[0])[1] or ".wav"
+        extension = _extension_from_audio_value(file_value)
         target = work_dir / f"ace-step-output-{index}{extension}"
         audio_url = file_value if file_value.startswith("http") else urljoin(f"{ACESTEP_API_URL}/", file_value.lstrip("/"))
         _download(audio_url, target, headers={"Authorization": f"Bearer {ACESTEP_API_KEY}"} if ACESTEP_API_KEY else {})
