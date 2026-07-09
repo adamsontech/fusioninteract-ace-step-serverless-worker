@@ -248,6 +248,25 @@ def _download_outputs(outputs, work_dir):
     return downloaded
 
 
+def _limit_audio_peak(local_path, target_peak=0.89):
+    if local_path.suffix.lower() not in {".wav", ".flac"}:
+        return {"applied": False, "reason": "unsupported_format"}
+    try:
+        import numpy as np
+        import soundfile as sf
+
+        audio, sample_rate = sf.read(str(local_path), always_2d=True)
+        peak = float(np.max(np.abs(audio))) if audio.size else 0.0
+        if peak <= target_peak or peak <= 0:
+            return {"applied": False, "peak": peak}
+        audio = audio * (target_peak / peak)
+        subtype = "PCM_16" if local_path.suffix.lower() == ".wav" else None
+        sf.write(str(local_path), audio, sample_rate, subtype=subtype)
+        return {"applied": True, "peak_before": peak, "peak_after": target_peak}
+    except Exception as exc:
+        return {"applied": False, "error": str(exc)[:300]}
+
+
 def _stage_optional_audio(job_input, work_dir, key_prefix):
     url = (_get_ci(job_input, f"{key_prefix}_audio_url") or "").strip()
     encoded = (_get_ci(job_input, f"{key_prefix}_audio_base64") or "").strip()
@@ -349,6 +368,7 @@ def handler(job):
         outputs = []
         for index, item in enumerate(downloaded, start=1):
             local_path = item["path"]
+            audio_limit = _limit_audio_peak(local_path)
             remote_path = f"{upload_prefix}/{title}-{index}{local_path.suffix.lower()}"
             upload_result = _upload_to_bunny(local_path, remote_path)
             public_url = upload_result.get("public_url")
@@ -365,6 +385,7 @@ def handler(job):
                 "storage_url": storage_url,
                 "base64": audio_base64,
                 "metadata": item["metadata"],
+                "audio_limit": audio_limit,
             })
 
         return {
